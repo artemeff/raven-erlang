@@ -1,5 +1,6 @@
 _build
 .eunit
+.rebar
 *.o
 *.beam
 *.plt
