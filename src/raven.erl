@@ -1,10 +1,13 @@
 -module(raven).
 -export([
+	start/0,
+	stop/0,
 	capture/2,
 	user_agent/0
 ]).
 
 -define(SENTRY_VERSION, "2.0").
+-define(JSONE_OPTS, [native_utf8, {object_key_type, scalar}]).
 
 -record(cfg, {
 	uri :: string(),
@@ -15,6 +18,14 @@
 }).
 
 -type cfg_rec() :: #cfg{}.
+
+-spec start() -> ok | {error, term()}.
+start() ->
+	application:ensure_all_started(raven).
+
+-spec stop() -> ok | {error, term()}.
+stop() ->
+	application:stop(raven).
 
 -spec capture(string() | binary(), [parameter()]) -> ok.
 -type parameter() ::
@@ -54,7 +65,7 @@ capture(Message, Params) ->
 		end, Params)
 	]},
 	Timestamp = integer_to_list(unix_timestamp_i()),
-	Body = base64:encode(zlib:compress(jiffy:encode(Document, [force_utf8]))),
+	Body = base64:encode(zlib:compress(jsone:encode(Document, ?JSONE_OPTS))),
 	UA = user_agent(),
 	Headers = [
 		{"X-Sentry-Auth",

@@ -1,53 +1,12 @@
-raven-erlang
-============
+# raven-erlang
 
-raven-erlang is an Erlang client for [Sentry](http://aboutsentry.com/) that integrates with the
-standard ```error_logger``` module.
+raven-erlang is an Erlang client for [Sentry](http://aboutsentry.com/) that integrates with the standard ```error_logger``` module.
 
-Quick Start
-===========
+## Basic Usage
 
-```shell
-git clone https://github.com/soundrop/raven-erlang.git
-cd raven-erlang
-make
-erl -pa ebin/ -pa deps/jiffy/ebin/ -s raven_app -raven project '"PROJECT_ID"' -raven public_key '"PUBLIC_KEY"' -raven private_key '"PRIVATE_KEY"'
-```
+Add raven as a dependency to your project, and include the raven application in your release:
 
-Which should start and erlang shell prompt, where you should be able to type something like this:
-
-```shell
-Erlang R15B03 (erts-5.9.3.1) [source] [64-bit] [smp:4:4] [async-threads:0] [hipe] [kernel-poll:false] [dtrace]
-
-Eshell V5.9.3.1  (abort with ^G)
-1> raven:capture("Hello Raven", []).
-ok
-2> q().
-ok
-```
-
-Basic Usage
-===========
-
-Add raven as a dependency to your project, and include the raven application in
-your release (in the reltool.config rel section):
-
-```erlang
-{rel, "my_app", "1", [
-    kernel,
-    stdlib,
-    sasl,
-    crypto,
-    ssl,
-    inets,
-    raven,
-
-    my_app
-]}.
-```
-
-The raven application itself needs to be configured using the application's environment, this is
-generally done in app.config or sys.config.
+The raven application itself needs to be configured using the application's environment, this is generally done in app.config or sys.config.
 
 It will accept either the individual config components:
 
@@ -71,12 +30,9 @@ or just the DSN:
 ]}.
 ```
 
-
 Now all events logged using error_logger will be sent to the [Sentry](http://aboutsentry.com/) service.
 
-
-Lager Backend
-============
+## Lager Backend
 
 At the moment, the raven lager backend shares its configuration with the raven application, and does
 not allow per-backend configuration.
@@ -89,10 +45,9 @@ To add the raven backend:
         {raven_lager_backend, info}]}]}
 ```
 
-Advanced Usage
-==============
+## Advanced Usage
 
-You can log directly events to sentry using the ```raven:capture/2``` function, for example:
+You can log directly events to sentry using the `raven:capture/2` function, for example:
 
 ```erlang
 raven:capture("Test Event", [
