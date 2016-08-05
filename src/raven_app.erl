@@ -1,4 +1,5 @@
 -module(raven_app).
+-include("raven.hrl").
 -behaviour(application).
 -export([
 	start/2,
@@ -7,7 +8,7 @@
 
 %% @hidden
 start(_StartType, _StartArgs) ->
-		case application:get_env(raven, error_logger) of
+		case application:get_env(?APP, error_logger) of
 			{ok, true} ->
 				error_logger:add_report_handler(raven_error_logger);
 			_ ->
@@ -17,7 +18,7 @@ start(_StartType, _StartArgs) ->
 
 %% @hidden
 stop(_State) ->
-	case application:get_env(raven, error_logger) of
+	case application:get_env(?APP, error_logger) of
 		{ok, true} ->
 			error_logger:delete_report_handler(raven_error_logger),
 			ok;

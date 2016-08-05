@@ -1,4 +1,5 @@
 -module(raven).
+-include("raven.hrl").
 -export([
 	start/0,
 	stop/0,
@@ -21,11 +22,11 @@
 
 -spec start() -> ok | {error, term()}.
 start() ->
-	application:ensure_all_started(raven).
+	application:ensure_all_started(?APP).
 
 -spec stop() -> ok | {error, term()}.
 stop() ->
-	application:stop(raven).
+	application:stop(?APP).
 
 -spec capture(string() | binary(), [parameter()]) -> ok.
 -type parameter() ::
@@ -85,13 +86,13 @@ capture(Message, Params) ->
 
 -spec user_agent() -> iolist().
 user_agent() ->
-	{ok, Vsn} = application:get_key(raven, vsn),
+	{ok, Vsn} = application:get_key(?APP, vsn),
 	["raven-erlang/", Vsn].
 
 %% @private
 -spec get_config() -> cfg_rec().
 get_config() ->
-	get_config(raven).
+	get_config(?APP).
 
 -spec get_config(App :: atom()) -> cfg_rec().
 get_config(App) ->
