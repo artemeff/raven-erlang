@@ -38,8 +38,9 @@ stop() ->
 	{module(), atom(), non_neg_integer() | [term()], [{atom(), term()}]}.
 capture(Message, Params) when is_list(Message) ->
 	capture(unicode:characters_to_binary(Message), Params);
-capture(Message, Params) ->
+capture(Message, Params0) ->
 	Cfg = get_config(),
+  Params1 = [{tags, get_tags()} | Params0],
 	Document = {[
 		{event_id, event_id_i()},
 		{project, unicode:characters_to_binary(Cfg#cfg.project)},
@@ -63,7 +64,7 @@ capture(Message, Params) ->
 				{extra, {[{Key, term_to_json_i(Value)} || {Key, Value} <- Tags]}};
 			({Key, Value}) ->
 				{Key, term_to_json_i(Value)}
-		end, Params)
+		end, Params1)
 	]},
 	Timestamp = integer_to_list(unix_timestamp_i()),
 	Body = base64:encode(zlib:compress(jsone:encode(Document, ?JSONE_OPTS))),
@@ -118,6 +119,8 @@ get_config(App) ->
 			     ipfamily = IpFamily}
 	end.
 
+get_tags() ->
+  application:get_env(?APP, tags, []).
 
 event_id_i() ->
 	U0 = crypto:rand_uniform(0, (2 bsl 32) - 1),
