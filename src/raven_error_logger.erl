@@ -259,7 +259,12 @@ parse_reason({Reason, Child}) when is_tuple(Child) andalso element(1, Child) =:=
 parse_reason({{Class, Reason}, Stacktrace}) when Class =:= exit; Class =:= error; Class =:= throw ->
 	{{Class, Reason}, parse_stacktrace(Stacktrace)};
 parse_reason({Reason, Stacktrace}) ->
-	{{exit, Reason}, parse_stacktrace(Stacktrace)};
+	case code:is_loaded('Elixir.Exception') of
+		false ->
+			{{exit, Reason}, parse_stacktrace(Stacktrace)};
+		_ ->
+			parse_reason_ex(Reason)
+	end;
 parse_reason(Reason) ->
 	{{exit, Reason}, []}.
 
@@ -270,6 +275,20 @@ parse_stacktrace([{_, _, _} | _] = Trace) -> Trace;
 parse_stacktrace([{_, _, _, _} | _] = Trace) -> Trace;
 parse_stacktrace(_) -> [].
 
+%% @private
+parse_reason_ex({Reason, Stacktrace}) ->
+	case 'Elixir.Exception':'exception?'(Reason) of
+		false ->
+			{{exit, Reason}, parse_stacktrace(Stacktrace)};
+		true ->
+			{{exit, format_message_ex(Reason)}, parse_stacktrace(Stacktrace)}
+	end.
+
+%% @private
+format_message_ex(Reason) -> 'Elixir.Exception':message(Reason).
+
+%% @private
+%format_stacktrace_ex(Stacktrace) -> 'Elixir.Exception':format_stacktrace(Stacktrace).
 
 %% @private
 format_exit(Tag, Name, Reason) when is_pid(Name) ->
