@@ -125,6 +125,21 @@ parse_message(error = Level, Pid, "Error in process " ++ _, [Name, Node, Reason]
 			{reason, Reason}
 		]}
 	]};
+parse_message(error = Level, Pid, "Ranch listener " ++ _, [Name, Protocol, RefPid, Reason]) ->
+	%% ranch connection terminated
+	{Exception, Stacktrace} = parse_reason(Reason),
+	{format_exit(Protocol, Name, Reason), [
+		{level, Level},
+		{exception, Exception},
+		{stacktrace, Stacktrace},
+		{extra, [
+			{name, Name},
+			{pid, Pid},
+			{ref_pid, RefPid},
+			{protocol, Protocol},
+			{reason, Reason}
+		]}
+	]};
 parse_message(Level, Pid, Format, Data) ->
 	{format(Format, Data), [
 		{level, Level},
