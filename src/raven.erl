@@ -40,7 +40,7 @@ capture(Message, Params) when is_list(Message) ->
 	capture(unicode:characters_to_binary(Message), Params);
 capture(Message, Params0) ->
 	Cfg = get_config(),
-  Params1 = [{tags, get_tags()} | Params0],
+	Params1 = [{tags, get_tags()} | Params0],
 	Document = {[
 		{event_id, event_id_i()},
 		{project, unicode:characters_to_binary(Cfg#cfg.project)},
@@ -81,7 +81,7 @@ capture(Message, Params0) ->
 	httpc:request(post,
 		{Cfg#cfg.uri ++ "/api/store/", Headers, "application/octet-stream", Body},
 		[],
-		[{body_format, binary}]
+		[{body_format, binary}, {sync, false}, {receiver, fun(_) -> ok end}]
 	),
 	ok.
 
@@ -120,7 +120,7 @@ get_config(App) ->
 	end.
 
 get_tags() ->
-  application:get_env(?APP, tags, []).
+	application:get_env(?APP, tags, []).
 
 event_id_i() ->
 	U0 = crypto:rand_uniform(0, (2 bsl 32) - 1),

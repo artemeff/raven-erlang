@@ -6,3 +6,5 @@ ebin
 *.beam
 *.plt
 erl_crash.dump
+.*.sw?
+.rebar3
