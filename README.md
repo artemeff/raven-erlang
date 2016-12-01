@@ -37,13 +37,39 @@ Now all events logged using error_logger will be sent to the [Sentry](http://abo
 At the moment, the raven lager backend shares its configuration with the raven application, and does
 not allow per-backend configuration.
 
-To add the raven backend:
+### Simple Configuration
+
+This adds the raven backend to lager. By default, it configures the raven lager backend to send most metadata that the lager parse transform creates (see Advanced Configuration).
 
 ```erlang
 {lager, [
     {handlers, [
         {raven_lager_backend, info}]}]}
 ```
+
+### Advanced Configuration
+
+This configuration uses a list `[Level :: atom(), MetadataKeys :: [atom()]]`.
+
+`MetadataKeys` is a list of atoms that correspond to the metadata to be sent by Raven, should it be included in the lager log message.
+
+The configuration shown here is equivalent to the Simple Configuration.
+
+```erlang
+{lager, [
+    {handlers, [
+        {raven_lager_backend,
+            [info, [pid, file, line, module, function, stacktrace]]}]}]}
+```
+
+To exclude all metadata except `pid`:
+
+```erlang
+{lager, [
+    {handlers, [
+        {raven_lager_backend, [info, [pid]]}]}]}
+```
+
 
 ## Advanced Usage
 
@@ -55,7 +81,7 @@ raven:capture("Test Event", [
     {stacktrace, erlang:get_stacktrace()},
     {extra, [
         {pid, self()},
-        {process_dictionnary, erlang:get()}
+        {process_dictionary, erlang:get()}
     ]}
 ]).
 ```
