@@ -259,7 +259,7 @@ parse_reason({Reason, Child}) when is_tuple(Child) andalso element(1, Child) =:=
 parse_reason({{Class, Reason}, Stacktrace}) when Class =:= exit; Class =:= error; Class =:= throw ->
 	{{Class, Reason}, parse_stacktrace(Stacktrace)};
 parse_reason({Reason, Stacktrace}) ->
-	case code:is_loaded('Elixir.Exception') of
+	case is_elixir() of
 		false ->
 			{{exit, Reason}, parse_stacktrace(Stacktrace)};
 		_ ->
@@ -356,6 +356,10 @@ format_reason({noproc, Trace}) ->
 	["no such process or port in call to ", format_mfa(Trace)];
 format_reason({{badfun, Term}, Trace}) ->
 	["bad function ", format_term(Term), " in ", format_mfa(Trace)];
+format_reason({#{'__exception__' := true} = Reason, Stacktrace}) ->
+  [format_message_ex(Reason), 'Elixir.Exception':format_stacktrace(Stacktrace)];
+format_reason({Reason, {M, F, A} = Trace}) when is_atom(M), is_atom(F), is_list(A) ->
+  [format_reason(Reason), " in ", format_mfa(Trace)];
 format_reason({Reason, [{M, F, A}|_] = Trace}) when is_atom(M), is_atom(F), is_integer(A) ->
 	[format_reason(Reason), " in ", format_mfa(Trace)];
 format_reason({Reason, [{M, F, A, Props}|_] = Trace}) when is_atom(M), is_atom(F), is_integer(A), is_list(Props) ->
@@ -370,13 +374,24 @@ format_mfa([{_, _, _, _} = MFA | _]) ->
 	format_mfa(MFA);
 format_mfa({M, F, A, _}) ->
 	format_mfa({M, F, A});
-format_mfa({M, F, A}) when is_list(A) ->
-	{Format, Args} = format_args(A, [], []),
-	format("~w:~w(" ++ Format ++ ")", [M, F | Args]);
-format_mfa({M, F, A}) when is_integer(A) ->
-	format("~w:~w/~w", [M, F, A]);
+format_mfa({M, F, A}) ->
+	format_mfa_platform({M, F, A});
 format_mfa(Term) ->
 	format_term(Term).
+
+%% @private
+format_mfa_platform({M, F, A} = MFA) ->
+  case is_elixir() of
+    false -> format_mfa_erlang(MFA);
+    _     -> 'Elixir.Exception':format_mfa(M, F, A)
+  end.
+
+%% @private
+format_mfa_erlang({M, F, A}) when is_list(A) ->
+  {Format, Args} = format_args(A, [], []),
+	format("~w:~w(" ++ Format ++ ")", [M, F | Args]);
+format_mfa_erlang({M, F, A}) when is_integer(A) ->
+  format("~w:~w/~w", [M, F, A]).
 
 %% @private
 format_args([], FormatAcc, ArgsAcc) ->
@@ -401,3 +416,10 @@ format_term(Term) ->
 %% @private
 format(Format, Data) ->
 	iolist_to_binary(io_lib:format(Format, Data)).
+
+%% @private
+is_elixir() ->
+  case code:is_loaded('Elixir.Exception') of
+    false -> false;
+    _     -> true
+  end.
