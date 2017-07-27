@@ -1,6 +1,6 @@
 {application, raven_erlang,
 	[ {description, "Erlang client for Sentry"}
-	, {vsn, "0.3.2"}
+	, {vsn, "0.3.3"}
 	, {registered, []}
 	, {applications, [kernel, stdlib, crypto, public_key, ssl, inets, jsone]}
 	, {mod, {raven_app, []}}
