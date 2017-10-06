@@ -140,6 +140,19 @@ parse_message(error = Level, Pid, "Ranch listener " ++ _, [Name, Protocol, RefPi
 			{reason, Reason}
 		]}
 	]};
+parse_message(error = Level, Pid, "** Task " ++ _, [TaskPid, RefPid, Fun, FunArgs, Reason]) ->
+  {Exception, Stacktrace} = parse_reason(Reason),
+	{format_exit("Task", TaskPid, Reason), [
+		{level, Level},
+		{exception, Exception},
+		{stacktrace, Stacktrace},
+		{extra, [
+			{pid, Pid},
+      {parent_pid, RefPid},
+      {function, Fun},
+      {function_args, FunArgs}
+		]}
+	]};
 parse_message(Level, Pid, Format, Data) ->
 	{format(Format, Data), [
 		{level, Level},
@@ -252,6 +265,8 @@ parse_reason({{bad_return_value, Value}, MFA}) ->
 	{{exit, {bad_return, Value}}, parse_stacktrace(MFA)};
 parse_reason({badarg, Stacktrace}) ->
 	{{error, badarg}, parse_stacktrace(Stacktrace)};
+parse_reason({{badmatch, Value}, Stacktrace}) ->
+  {{exit, {badmatch, Value}}, parse_stacktrace(Stacktrace)};
 parse_reason({'EXIT', Reason}) ->
 	parse_reason(Reason);
 parse_reason({Reason, Child}) when is_tuple(Child) andalso element(1, Child) =:= child ->
