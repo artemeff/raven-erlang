@@ -97,7 +97,7 @@ get_config() ->
 
 -spec get_config(App :: atom()) -> cfg_rec().
 get_config(App) ->
-	{ok, IpFamily} = application:get_env(App, ipfamily),
+	{ok, IpFamily} = application:get_env(App, ipfamily, inet),
 	case application:get_env(App, dsn) of
 		{ok, Dsn} ->
 			{match, [_, Protocol, PublicKey, SecretKey, Uri, Project]} =
