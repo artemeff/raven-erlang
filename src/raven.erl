@@ -41,6 +41,7 @@ capture(Message, Params) when is_list(Message) ->
 capture(Message, Params0) ->
 	Cfg = get_config(),
 	Params1 = [{tags, get_tags()} | Params0],
+	Params2 = maybe_append_release(Params1),
 	Document = {[
 		{event_id, event_id_i()},
 		{project, unicode:characters_to_binary(Cfg#cfg.project)},
@@ -64,7 +65,7 @@ capture(Message, Params0) ->
 				{extra, {[{Key, term_to_json_i(Value)} || {Key, Value} <- Tags]}};
 			({Key, Value}) ->
 				{Key, term_to_json_i(Value)}
-		end, Params1)
+		end, Params2)
 	]},
 	Timestamp = integer_to_list(unix_timestamp_i()),
 	Body = base64:encode(zlib:compress(jsone:encode(Document, ?JSONE_OPTS))),
@@ -121,6 +122,12 @@ get_config(App) ->
 
 get_tags() ->
 	application:get_env(?APP, tags, []).
+
+maybe_append_release(Params) ->
+	case application:get_env(?APP, release) of
+		{ok, Release} -> [{release, Release} | Params];
+		undefined -> Params
+	end.
 
 event_id_i() ->
 	<<U0:32, U1:16, _:4, U2:12, _:2, U3:30, U4:32>> = crypto:strong_rand_bytes(16),
