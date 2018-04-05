@@ -6,6 +6,11 @@
 	capture/2,
 	user_agent/0
 ]).
+-ifdef(TEST).
+-export([
+	get_config/0
+]).
+-endif.
 
 -define(SENTRY_VERSION, "2.0").
 -define(JSONE_OPTS, [native_utf8, {object_key_type, scalar}]).

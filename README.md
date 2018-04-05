@@ -2,6 +2,7 @@
 
 raven-erlang is an Erlang client for [Sentry](http://aboutsentry.com/) that integrates with the standard `error_logger` module. It also serves as a [Lager](https://github.com/erlang-lager/lager) backend.
 
+[![Build Status](https://travis-ci.org/artemeff/raven-erlang.svg?branch=master)](https://travis-ci.org/artemeff/raven-erlang)
 [![Hex.pm](https://img.shields.io/hexpm/v/raven_erlang.svg)](https://hex.pm/packages/raven_erlang)
 
 ## Basic Usage
