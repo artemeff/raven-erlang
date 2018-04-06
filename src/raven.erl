@@ -6,6 +6,11 @@
 	capture/2,
 	user_agent/0
 ]).
+-ifdef(TEST).
+-export([
+	get_config/0
+]).
+-endif.
 
 -define(SENTRY_VERSION, "2.0").
 -define(JSONE_OPTS, [native_utf8, {object_key_type, scalar}]).
@@ -98,7 +103,7 @@ get_config() ->
 
 -spec get_config(App :: atom()) -> cfg_rec().
 get_config(App) ->
-	{ok, IpFamily} = application:get_env(App, ipfamily),
+	IpFamily = application:get_env(App, ipfamily, inet),
 	case application:get_env(App, dsn) of
 		{ok, Dsn} ->
 			{match, [_, Protocol, PublicKey, SecretKey, Uri, Project]} =
