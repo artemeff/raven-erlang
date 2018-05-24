@@ -1,5 +1,6 @@
 -module(raven_error_logger).
-
+-include("raven.hrl").
+-include("raven_error_logger.hrl").
 -behaviour(gen_event).
 -export([
 	init/1,
@@ -10,6 +11,10 @@
 	handle_info/2
 ]).
 
+-record(config, {
+	logging_level = warning :: logging_level(),
+	filter = undefined :: module()
+}).
 
 init(_) ->
 	{ok, []}.
@@ -22,18 +27,33 @@ handle_event({error, _, {Pid, Format, Data}}, State) ->
 	raven:capture(Message, Details),
 	{ok, State};
 handle_event({error_report, _, {Pid, Type, Report}}, State) ->
-	{Message, Details} = parse_report(error, Pid, Type, Report),
-	raven:capture(Message, Details),
-	{ok, State};
+	case should_send_report(Type, Report) of
+		true ->
+			{Message, Details} = parse_report(error, Pid, Type, Report),
+			raven:capture(Message, Details),
+			{ok, State};
+		false ->
+			{ok, State}
+	end;
 
 handle_event({warning_msg, _, {Pid, Format, Data}}, State) ->
-	{Message, Details} = parse_message(warning, Pid, Format, Data),
-	raven:capture(Message, Details),
-	{ok, State};
+	case get_config() of
+		#config{logging_level = warning} ->
+			{Message, Details} = parse_message(warning, Pid, Format, Data),
+			raven:capture(Message, Details),
+			{ok, State};
+		_ ->
+			{ok, State}
+	end;
 handle_event({warning_report, _, {Pid, Type, Report}}, State) ->
-	{Message, Details} = parse_report(warning, Pid, Type, Report),
-	raven:capture(Message, Details),
-	{ok, State};
+	case {get_config(), should_send_report(Type, Report)} of
+		{#config{logging_level = warning}, true}->
+			{Message, Details} = parse_report(warning, Pid, Type, Report),
+			raven:capture(Message, Details),
+			{ok, State};
+		_ ->
+			{ok, State}
+	end;
 
 handle_event(_, State) ->
 	{ok, State}.
@@ -46,6 +66,27 @@ code_change(_, State, _) ->
 
 terminate(_, _) ->
 	ok.
+
+
+%% @private
+-spec get_config() -> #config{}.
+get_config() ->
+	Default = #config{},
+	case application:get_env(?APP, error_logger_config) of
+		{ok, Options} when is_list(Options) ->
+			#config{
+				logging_level =
+					proplists:get_value(level,
+										Options,
+										Default#config.logging_level),
+				filter =
+					proplists:get_value(filter,
+										Options,
+										Default#config.filter)
+			};
+		undefined ->
+			Default
+	end.
 
 
 %% @private
@@ -148,9 +189,9 @@ parse_message(error = Level, Pid, "** Task " ++ _, [TaskPid, RefPid, Fun, FunArg
 		{stacktrace, Stacktrace},
 		{extra, [
 			{pid, Pid},
-      {parent_pid, RefPid},
-      {function, Fun},
-      {function_args, FunArgs}
+			{parent_pid, RefPid},
+			{function, Fun},
+			{function_args, FunArgs}
 		]}
 	]};
 parse_message(Level, Pid, Format, Data) ->
@@ -161,6 +202,25 @@ parse_message(Level, Pid, Format, Data) ->
 			{data, Data}
 		]}
 	]}.
+
+
+%% @private
+-spec should_send_report(report_type(), error_logger:report()) -> boolean().
+should_send_report(supervisor_report, Report) ->
+	[{errorContext, Context},
+	 {offender, _},
+	 {reason, Reason},
+	 {supervisor, Supervisor}] = lists:sort(Report),
+	#config{
+		filter = Mod
+	} = get_config(),
+	case erlang:function_exported(Mod, should_send_supervisor_report, 3) of
+		true ->
+			Mod:should_send_supervisor_report(Supervisor, Reason, Context);
+		false ->
+			true
+	end;
+should_send_report(_, _) -> true.
 
 
 %% @private
@@ -211,6 +271,7 @@ parse_crash_report(Level, Pid, [Report, Neighbors]) ->
 				]}
 			]}
 	end.
+
 
 %% @private
 parse_supervisor_report(Level, Pid, [{errorContext, Context}, {offender, Offender}, {reason, Reason}, {supervisor, Supervisor}]) ->
