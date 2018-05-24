@@ -207,16 +207,14 @@ parse_message(Level, Pid, Format, Data) ->
 %% @private
 -spec should_send_report(report_type(), error_logger:report()) -> boolean().
 should_send_report(supervisor_report, Report) ->
-    [{errorContext, Context},
-     {offender, _},
-     {reason, Reason},
-     {supervisor, Supervisor}] = lists:sort(Report),
-    #config{
-        filter = Mod
-    } = get_config(),
+    #config{filter = Mod} = get_config(),
     case erlang:function_exported(Mod, should_send_supervisor_report, 3) of
         true ->
-            Mod:should_send_supervisor_report(Supervisor, Reason, Context);
+            Mod:should_send_supervisor_report(
+                proplists:get_value(supervisor, Report),
+                proplists:get_value(reason, Report),
+                proplists:get_value(errorContext, Report)
+            );
         false ->
             true
     end;
@@ -227,11 +225,26 @@ should_send_report(_, _) -> true.
 parse_report(Level, Pid, Type, Report) ->
     case {Level, Type} of
         {_, crash_report} when is_list(Report) ->
-            parse_crash_report(Level, Pid, lists:sort(Report));
+            parse_crash_report(
+                Level,
+                Pid,
+                Report
+            );
         {_, supervisor_report} when is_list(Report) ->
-            parse_supervisor_report(Level, Pid, lists:sort(Report));
+            parse_supervisor_report(
+                Level,
+                Pid,
+                proplists:get_value(errorContext, Report),
+                proplists:get_value(offender, Report),
+                proplists:get_value(reason, Report),
+                proplists:get_value(supervisor, Report)
+            );
         {info, progress} when is_list(Report) ->
-            parse_progress_report(Pid, lists:sort(Report));
+            parse_progress_report(
+                Pid,
+                proplists:get_value(started, Report),
+                proplists:get_value(supervisor, Report)
+            );
         {error, std_error} when is_list(Report) ->
             parse_std_error_report(Pid, Report);
         _ ->
@@ -274,7 +287,7 @@ parse_crash_report(Level, Pid, [Report, Neighbors]) ->
 
 
 %% @private
-parse_supervisor_report(Level, Pid, [{errorContext, Context}, {offender, Offender}, {reason, Reason}, {supervisor, Supervisor}]) ->
+parse_supervisor_report(Level, Pid, Context, Offender, Reason, Supervisor) ->
     {Exception, Stacktrace} = parse_reason(Reason),
     {format("Supervisor ~s had child exit with reason ~s", [format_name(Supervisor), format_reason(Reason)]), [
         {level, Level},
@@ -295,7 +308,7 @@ parse_supervisor_report(Level, Pid, [{errorContext, Context}, {offender, Offende
 
 
 %% @private
-parse_progress_report(Pid, [{started, Started}, {supervisor, Supervisor}]) ->
+parse_progress_report(Pid, Started, Supervisor) ->
     Message = case proplists:get_value(name, Started, []) of
         [] -> format("Supervisor ~s started child", [format_name(Supervisor)]);
         Name -> format("Supervisor ~s started ~s", [format_name(Supervisor), format_name(Name)])
