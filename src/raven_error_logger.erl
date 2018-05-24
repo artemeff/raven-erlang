@@ -22,7 +22,7 @@ handle_event({error, _, {Pid, Format, Data}}, State) ->
 	raven:capture(Message, Details),
 	{ok, State};
 handle_event({error_report, _, {Pid, Type, Report}}, State) ->
-	{Message, Details} = parse_report(error, Pid, Type, lists:sort(Report)),
+	{Message, Details} = parse_report(error, Pid, Type, Report),
 	raven:capture(Message, Details),
 	{ok, State};
 
@@ -31,7 +31,7 @@ handle_event({warning_msg, _, {Pid, Format, Data}}, State) ->
 	raven:capture(Message, Details),
 	{ok, State};
 handle_event({warning_report, _, {Pid, Type, Report}}, State) ->
-	{Message, Details} = parse_report(warning, Pid, Type, lists:sort(Report)),
+	{Message, Details} = parse_report(warning, Pid, Type, Report),
 	raven:capture(Message, Details),
 	{ok, State};
 
@@ -164,7 +164,23 @@ parse_message(Level, Pid, Format, Data) ->
 
 
 %% @private
-parse_report(Level, Pid, crash_report, [Report, Neighbors]) ->
+parse_report(Level, Pid, Type, Report) ->
+	case {Level, Type} of
+		{_, crash_report} when is_list(Report) ->
+			parse_crash_report(Level, Pid, lists:sort(Report));
+		{_, supervisor_report} when is_list(Report) ->
+			parse_supervisor_report(Level, Pid, lists:sort(Report));
+		{info, progress} when is_list(Report) ->
+			parse_progress_report(Pid, lists:sort(Report));
+		{error, std_error} when is_list(Report) ->
+			parse_std_error_report(Pid, Report);
+		_ ->
+			parse_unknown_report(Level, Pid, Type, Report)
+	end.
+
+
+%% @private
+parse_crash_report(Level, Pid, [Report, Neighbors]) ->
 	Name = case proplists:get_value(registered_name, Report, []) of
 		[] -> proplists:get_value(pid, Report);
 		N -> N
@@ -194,8 +210,10 @@ parse_report(Level, Pid, crash_report, [Report, Neighbors]) ->
 					Report
 				]}
 			]}
-	end;
-parse_report(Level, Pid, supervisor_report, [{errorContext, Context}, {offender, Offender}, {reason, Reason}, {supervisor, Supervisor}]) ->
+	end.
+
+%% @private
+parse_supervisor_report(Level, Pid, [{errorContext, Context}, {offender, Offender}, {reason, Reason}, {supervisor, Supervisor}]) ->
 	{Exception, Stacktrace} = parse_reason(Reason),
 	{format("Supervisor ~s had child exit with reason ~s", [format_name(Supervisor), format_reason(Reason)]), [
 		{level, Level},
@@ -212,8 +230,11 @@ parse_report(Level, Pid, supervisor_report, [{errorContext, Context}, {offender,
 			{child_type, proplists:get_value(child_type, Offender)},
 			{shutdown, proplists:get_value(shutdown, Offender)}
 		]}
-	]};
-parse_report(info, Pid, progress, [{started, Started}, {supervisor, Supervisor}]) ->
+	]}.
+
+
+%% @private
+parse_progress_report(Pid, [{started, Started}, {supervisor, Supervisor}]) ->
 	Message = case proplists:get_value(name, Started, []) of
 		[] -> format("Supervisor ~s started child", [format_name(Supervisor)]);
 		Name -> format("Supervisor ~s started ~s", [format_name(Supervisor), format_name(Name)])
@@ -230,10 +251,13 @@ parse_report(info, Pid, progress, [{started, Started}, {supervisor, Supervisor}]
 			{child_type, proplists:get_value(child_type, Started)},
 			{shutdown, proplists:get_value(shutdown, Started)}
 		]}
-	]};
-parse_report(Level, Pid, Type, Report) ->
-	Message = case proplists:get_value(message, Report, []) of
-		[] -> <<"Report from process">>;
+	]}.
+
+
+%% @private
+parse_std_error_report(Pid, Report) ->
+	Message = case proplists:get_value(message, Report) of
+		undefined -> format_string(Report);
 		M -> format_string(M)
 	end,
 	{Toplevel, Extra} = lists:partition(fun
@@ -242,13 +266,25 @@ parse_report(Level, Pid, Type, Report) ->
 		(_) -> false
 	end, Report),
 	{Message, [
-		{level, Level},
+		{level, error},
 		{extra, [
-			{type, Type},
+			{type, std_error},
 			{pid, Pid} |
 			lists:keydelete(message, 1, Extra)
 		]} |
 		Toplevel
+	]}.
+
+
+%% @private
+parse_unknown_report(Level, Pid, Type, Report) ->
+  Message = format_string(Report),
+	{Message, [
+		{level, Level},
+		{extra, [
+			{type, Type},
+			{pid, Pid}
+		]}
 	]}.
 
 
