@@ -15,7 +15,7 @@ In `rebar.config`:
 
 ```erlang
 {deps, [
-    {raven_erlang, "0.3.7"}
+    {raven_erlang, "0.4.0"}
 ]}.
 ```
 
