@@ -15,7 +15,7 @@ In `rebar.config`:
 
 ```erlang
 {deps, [
-    {raven_erlang, "0.3.5"}
+    {raven_erlang, "0.4.0"}
 ]}.
 ```
 
@@ -32,31 +32,47 @@ To start `raven_erlang` with your application, add in your `myapp.app.src`:
 
 ## Configure
 
-The raven application itself needs to be configured using the application's environment, this is generally done in app.config or sys.config.
-
-It will accept either the individual config components:
+`raven_erlang` is configured using the application environment. This is generally done in app.config or sys.config:
 
 ```erlang
 {raven_erlang, [
+    % One can point `raven_erlang` to a project like this:
     {uri, "https://app.getsentry.com"},
     {project, "1"},
     {public_key, "PUBLIC_KEY"},
     {private_key, "PRIVATE_KEY"},
-    {error_logger, true},  % Set to true in order to install the standard error logger
-    {ipfamily, inet}  % Set to inet6 to use IPv6. See `ipfamily` in `httpc:set_options/1` for more information. Default to `inet` if no provided.
-]}.
-```
 
-or just the DSN:
-
-```erlang
-{raven_erlang, [
+    % ...or just use the DSN:
     {dsn, "https://PUBLIC_KEY:PRIVATE_KEY@app.getsentry.com/1"},
-    {error_logger, true}  % Set to true in order to install the standard error logger
+
+    % Set to inet6 to use IPv6.
+    % See `ipfamily` in `httpc:set_options/1` for more information.
+    % Default value is `inet`.
+    {ipfamily, inet},
+
+    % Set to true in order to install the standard error logger.
+    % Now all events logged using `error_logger` will be sent to Sentry.
+    {error_logger, true},
+
+    % Customize error logger:
+    % Default value is `[]`.
+    {error_logger_config, [
+        % `warning` or `error`.
+        % If set to `error`, error logger will ignore warning messages and reports.
+        % Default value is `warning`.
+        {level, warning},
+
+        % Not all messages that error_logger generates are useful.
+        % For example, supervisors will always generate an error_report when
+        % restarting a child, even if it exits with `reason = normal`.
+        % You can provide a module that implements `raven_error_logger_filter` behavior
+        % to avoid spamming sentry with issues that are not errors.
+        % See http://erlang.org/doc/apps/sasl/error_logging.html for more information.
+        % Default value is `undefined`.
+        {filter, callback_module}
+    ]}
 ]}.
 ```
-
-Now all events logged using error_logger will be sent to the [Sentry](http://aboutsentry.com/) service.
 
 ## Lager Backend
 
