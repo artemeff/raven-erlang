@@ -86,7 +86,20 @@ capture(Message, Params0) ->
     ok = httpc:set_options([{ipfamily, Cfg#cfg.ipfamily}]),
     httpc:request(post,
         {Cfg#cfg.uri ++ "/api/store/", Headers, "application/octet-stream", Body},
-        [],
+        [
+          {
+            ssl,
+            [
+              {verify, verify_peer},
+              {cacertfile, "/etc/ssl/cert.pem"},
+              {depth, 2},
+              {
+                customize_hostname_check,
+                [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}]
+              }
+            ]
+          }
+        ],
         [{body_format, binary}, {sync, false}, {receiver, fun(_) -> ok end}]
     ),
     ok.
