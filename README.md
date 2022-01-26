@@ -45,6 +45,9 @@ To start `raven_erlang` with your application, add in your `myapp.app.src`:
     % ...or just use the DSN:
     {dsn, "https://PUBLIC_KEY:PRIVATE_KEY@app.getsentry.com/1"},
 
+    % Set cacert file location
+    % {cacertfile, "/etc/ssl/cert.pem"},
+
     % Set to inet6 to use IPv6.
     % See `ipfamily` in `httpc:set_options/1` for more information.
     % Default value is `inet`.
