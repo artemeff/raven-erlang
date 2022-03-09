@@ -73,7 +73,7 @@ capture(Message, Params0) ->
         end, Params2)
     ]},
     Timestamp = integer_to_list(unix_timestamp_i()),
-    Body = base64:encode(zlib:compress(jsone:encode(Document, ?JSONE_OPTS))),
+    Body = jsone:encode(Document, ?JSONE_OPTS),
     UA = user_agent(),
     Headers = [
         {"X-Sentry-Auth",
@@ -85,7 +85,7 @@ capture(Message, Params0) ->
     ],
     ok = httpc:set_options([{ipfamily, Cfg#cfg.ipfamily}]),
     httpc:request(post,
-        {Cfg#cfg.uri ++ "/api/store/", Headers, "application/octet-stream", Body},
+        {Cfg#cfg.uri ++ "/api/" ++ binary_to_list(unicode:characters_to_binary(Cfg#cfg.project))++"/store/", Headers, "application/json", Body},
         [
           {
             ssl,
@@ -100,7 +100,7 @@ capture(Message, Params0) ->
             ]
           }
         ],
-        [{body_format, binary}, {sync, false}, {receiver, fun(_) -> ok end}]
+        [{body_format, binary}, {sync, false}, {receiver, fun(Resp) -> logger:info("Httppost response ~p", [Resp]),ok end}]
     ),
     ok.
 
