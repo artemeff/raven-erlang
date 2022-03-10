@@ -77,7 +77,7 @@ capture(Message, Params0) ->
       ]
     },
   Timestamp = integer_to_list(unix_timestamp_i()),
-  Body = jsone:encode(Document, ?JSONE_OPTS),
+  Body = zlib:gzip(jsone:encode(Document, ?JSONE_OPTS)),
   UA = user_agent(),
   Headers =
     [
@@ -94,6 +94,7 @@ capture(Message, Params0) ->
           Cfg#cfg.public_key
         ]
       },
+      {"Content-Encoding", "gzip"},
       {"User-Agent", UA}
     ],
   ok = httpc:set_options([{ipfamily, Cfg#cfg.ipfamily}]),
@@ -131,9 +132,10 @@ capture(Message, Params0) ->
       {
         receiver,
         fun
+          ({_,{{"HTTP/1.1", 200, "OK"}, _,_}}) ->
+                ok;
           (Resp) ->
-            logger:info("Httppost response ~p", [Resp]),
-            ok
+            logger:info("Http post response not ok ~p", [Resp])
         end
       }
     ]
