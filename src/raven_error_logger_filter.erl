@@ -1,4 +1,5 @@
 -module(raven_error_logger_filter).
+
 -include("raven_error_logger.hrl").
 
 -optional_callbacks([should_send_supervisor_report/3]).
@@ -8,6 +9,6 @@
 %% To avoid spamming Sentry with issues that are not errors,
 %% one can implement this callback to filter supervisor reports,
 %% received from error logger.
--callback should_send_supervisor_report(supervisor(),
-                                        reason(),
-                                        supervisor_report_context()) -> boolean().
+
+-callback should_send_supervisor_report(supervisor(), reason(), supervisor_report_context()) ->
+  boolean().
