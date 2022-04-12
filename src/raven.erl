@@ -4,15 +4,15 @@
     start/0,
     stop/0,
     capture/2,
-    user_agent/0
+    user_agent/0,
+    get_config/0,
+    unix_timestamp_i/0,
+    request/2,
+    encode_body/1
 ]).
--ifdef(TEST).
--export([
-    get_config/0
-]).
--endif.
 
--define(SENTRY_VERSION, "2.0").
+-define(SENTRY_VER2, "2.0").
+-define(SENTRY_VER7, "7.0").
 -define(JSONE_OPTS, [native_utf8, {object_key_type, scalar}]).
 
 -record(cfg, {
@@ -20,7 +20,8 @@
     public_key :: string(),
     private_key :: string(),
     project :: string(),
-    ipfamily :: atom()
+    ipfamily :: atom(),
+    sentry_ver :: string()
 }).
 
 -type cfg_rec() :: #cfg{}.
@@ -41,12 +42,14 @@ stop() ->
 -type stackframe() ::
     {module(), atom(), non_neg_integer() | [term()]} |
     {module(), atom(), non_neg_integer() | [term()], [{atom(), term()}]}.
+
 capture(Message, Params) when is_list(Message) ->
     capture(unicode:characters_to_binary(Message), Params);
 capture(Message, Params0) ->
     Cfg = get_config(),
     Params1 = [{tags, get_tags()} | Params0],
     Params2 = maybe_append_release(Params1),
+    Params3 = maybe_append_env(Params2),
     Document = {[
         {event_id, event_id_i()},
         {project, unicode:characters_to_binary(Cfg#cfg.project)},
@@ -70,22 +73,14 @@ capture(Message, Params0) ->
                 {extra, {[{Key, term_to_json_i(Value)} || {Key, Value} <- Tags]}};
             ({Key, Value}) ->
                 {Key, term_to_json_i(Value)}
-        end, Params2)
+        end, Params3)
     ]},
-    Timestamp = integer_to_list(unix_timestamp_i()),
-    Body = base64:encode(zlib:compress(jsone:encode(Document, ?JSONE_OPTS))),
-    UA = user_agent(),
-    Headers = [
-        {"X-Sentry-Auth",
-        ["Sentry sentry_version=", ?SENTRY_VERSION,
-         ",sentry_client=", UA,
-         ",sentry_timestamp=", Timestamp,
-         ",sentry_key=", Cfg#cfg.public_key]},
-        {"User-Agent", UA}
-    ],
+
+    Request = request(Document, Cfg),
+
     ok = httpc:set_options([{ipfamily, Cfg#cfg.ipfamily}]),
     httpc:request(post,
-        {Cfg#cfg.uri ++ "/api/store/", Headers, "application/octet-stream", Body},
+        Request,
         [],
         [{body_format, binary}, {sync, false}, {receiver, fun(_) -> ok end}]
     ),
@@ -103,7 +98,10 @@ get_config() ->
 
 -spec get_config(App :: atom()) -> cfg_rec().
 get_config(App) ->
-    IpFamily = application:get_env(App, ipfamily, inet),
+    IpFamily     = application:get_env(App, ipfamily, inet),
+    SentryVerCfg = application:get_env(App, sentry_ver, ?SENTRY_VER2),
+    SentryVer    = api_version(SentryVerCfg),
+
     case application:get_env(App, dsn) of
         {ok, Dsn} ->
             {match, [_, Protocol, PublicKey, SecretKey, Uri, Project]} =
@@ -112,7 +110,8 @@ get_config(App) ->
                  public_key = PublicKey,
                  private_key = SecretKey,
                  project = Project,
-                 ipfamily = IpFamily};
+                 ipfamily = IpFamily,
+                 sentry_ver = SentryVer};
         undefined ->
             {ok, Uri} = application:get_env(App, uri),
             {ok, PublicKey} = application:get_env(App, public_key),
@@ -122,7 +121,8 @@ get_config(App) ->
                  public_key = PublicKey,
                  private_key = PrivateKey,
                  project = Project,
-                 ipfamily = IpFamily}
+                 ipfamily = IpFamily,
+                 sentry_ver = SentryVer}
     end.
 
 get_tags() ->
@@ -131,6 +131,12 @@ get_tags() ->
 maybe_append_release(Params) ->
     case application:get_env(?APP, release) of
         {ok, Release} -> [{release, Release} | Params];
+        undefined -> Params
+    end.
+
+maybe_append_env(Params) ->
+    case application:get_env(?APP, environment) of
+        {ok, Environment} -> [{environment, Environment} | Params];
         undefined -> Params
     end.
 
@@ -147,6 +153,11 @@ timestamp_i() ->
 unix_timestamp_i() ->
     {Mega, Sec, Micro} = os:timestamp(),
     Mega * 1000000 * 1000000 + Sec * 1000000 + Micro.
+
+api_version(Ver) when is_binary(Ver); is_list(Ver) ->
+    lists:flatten(io_lib:format("~s", [Ver]));
+api_version(Ver) when is_number(Ver) ->
+    lists:flatten(io_lib:format("~p", [Ver])).
 
 frame_to_json_i({Module, Function, Arguments}) ->
     frame_to_json_i({Module, Function, Arguments, []});
@@ -178,3 +189,36 @@ term_to_json_i(Term) when is_binary(Term); is_atom(Term) ->
     Term;
 term_to_json_i(Term) ->
     iolist_to_binary(io_lib:format("~120p", [Term])).
+
+encode_body(Document) ->
+    base64:encode(zlib:compress(jsone:encode(Document, ?JSONE_OPTS))).
+
+request(Document, Cfg) when Cfg#cfg.sentry_ver == ?SENTRY_VER2 ->
+    UA  = user_agent(),
+    Timestamp = integer_to_list(unix_timestamp_i()),
+
+    Headers = [
+        {"X-Sentry-Auth",
+        ["Sentry sentry_version=", ?SENTRY_VER2,
+         ",sentry_client=", UA,
+         ",sentry_timestamp=", Timestamp,
+         ",sentry_key=", Cfg#cfg.public_key]},
+        {"User-Agent", UA}
+    ],
+    Url  = Cfg#cfg.uri ++ "/api/store/",
+    {Url, Headers, "application/octet-stream", encode_body(Document)};
+request(Document, Cfg) when Cfg#cfg.sentry_ver == ?SENTRY_VER7 ->
+    UA  = user_agent(),
+    Timestamp = integer_to_list(unix_timestamp_i()),
+
+    Headers = [
+        {"X-Sentry-Auth",
+        ["Sentry sentry_version=", ?SENTRY_VER7,
+         ",sentry_client=", UA,
+         ",sentry_timestamp=", Timestamp,
+         ",sentry_key=", Cfg#cfg.public_key,
+         ",sentry_secret=", Cfg#cfg.private_key]},
+        {"User-Agent", UA}
+    ],
+    Url  = Cfg#cfg.uri ++ "/api/" ++ Cfg#cfg.project ++ "/store/",
+    {Url, Headers, "application/octet-stream", encode_body(Document)}.
