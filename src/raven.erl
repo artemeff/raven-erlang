@@ -5,7 +5,10 @@
     stop/0,
     capture/2,
     user_agent/0,
-    get_config/0
+    get_config/0,
+    unix_timestamp_i/0,
+    request/2,
+    encode_body/1
 ]).
 
 -define(SENTRY_VER2, "2.0").
@@ -73,7 +76,7 @@ capture(Message, Params0) ->
         end, Params3)
     ]},
 
-    Request = request(Document, Cfg#cfg.sentry_ver),
+    Request = request(Document, Cfg),
 
     ok = httpc:set_options([{ipfamily, Cfg#cfg.ipfamily}]),
     httpc:request(post,
@@ -187,8 +190,10 @@ term_to_json_i(Term) when is_binary(Term); is_atom(Term) ->
 term_to_json_i(Term) ->
     iolist_to_binary(io_lib:format("~120p", [Term])).
 
-request(Document, ?SENTRY_VER2) ->
-    Cfg = get_config(),
+encode_body(Document) ->
+    base64:encode(zlib:compress(jsone:encode(Document, ?JSONE_OPTS))).
+
+request(Document, Cfg) when Cfg#cfg.sentry_ver == ?SENTRY_VER2 ->
     UA  = user_agent(),
     Timestamp = integer_to_list(unix_timestamp_i()),
 
@@ -200,12 +205,9 @@ request(Document, ?SENTRY_VER2) ->
          ",sentry_key=", Cfg#cfg.public_key]},
         {"User-Agent", UA}
     ],
-
-    Body = base64:encode(zlib:compress(jsone:encode(Document, ?JSONE_OPTS))),
     Url  = Cfg#cfg.uri ++ "/api/store/",
-    {Url, Headers, "application/octet-stream", Body};
-request(Document, ?SENTRY_VER7) ->
-    Cfg = get_config(),
+    {Url, Headers, "application/octet-stream", encode_body(Document)};
+request(Document, Cfg) when Cfg#cfg.sentry_ver == ?SENTRY_VER7 ->
     UA  = user_agent(),
     Timestamp = integer_to_list(unix_timestamp_i()),
 
@@ -218,7 +220,5 @@ request(Document, ?SENTRY_VER7) ->
          ",sentry_secret=", Cfg#cfg.private_key]},
         {"User-Agent", UA}
     ],
-
-    Body = base64:encode(zlib:compress(jsone:encode(Document, ?JSONE_OPTS))),
     Url  = Cfg#cfg.uri ++ "/api/" ++ Cfg#cfg.project ++ "/store/",
-    {Url, Headers, "application/octet-stream", Body}.
+    {Url, Headers, "application/octet-stream", encode_body(Document)}.

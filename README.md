@@ -52,7 +52,7 @@ To start `raven_erlang` with your application, add in your `myapp.app.src`:
 
     % Sentry api version
     % Use 7.0 to send private key (required for cloud version sentry.io)
-    % {sentry_ver, 7.0}
+    {sentry_ver, 2.0}
 
     % Environment
     {environment, "local"},
