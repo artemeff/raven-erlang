@@ -106,11 +106,17 @@ get_config(App) ->
     IpFamily = application:get_env(App, ipfamily, inet),
     case application:get_env(App, dsn) of
         {ok, Dsn} ->
-            {match, [_, Protocol, PublicKey, SecretKey, Uri, Project]} =
-                re:run(Dsn, "^(https?://)(.+):(.+)@(.+)/(.+)$", [{capture, all, list}]),
+            {match, [_, Protocol, Keys, Uri, Project]} =
+                re:run(Dsn, "^(https?://)(.+)@(.+)/(.+)$", [{capture, all, list}]),
+            [PublicKey | MaybePrivateKey] = string:split(Keys, ":"),
+            PrivateKey =
+                case MaybePrivateKey of
+                    [] -> "";
+                    [Key] -> Key
+                end,
             #cfg{uri = Protocol ++ Uri,
                  public_key = PublicKey,
-                 private_key = SecretKey,
+                 private_key = PrivateKey,
                  project = Project,
                  ipfamily = IpFamily};
         undefined ->

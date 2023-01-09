@@ -15,7 +15,7 @@ In `rebar.config`:
 
 ```erlang
 {deps, [
-    {raven_erlang, "0.4.0"}
+    {raven_erlang, "0.4.3"}
 ]}.
 ```
 
@@ -40,10 +40,11 @@ To start `raven_erlang` with your application, add in your `myapp.app.src`:
     {uri, "https://app.getsentry.com"},
     {project, "1"},
     {public_key, "PUBLIC_KEY"},
-    {private_key, "PRIVATE_KEY"},
+    {private_key, "PRIVATE_KEY"},  % This is now optional
 
     % ...or just use the DSN:
-    {dsn, "https://PUBLIC_KEY:PRIVATE_KEY@app.getsentry.com/1"},
+    {dsn, "https://PUBLIC_KEY@app.getsentry.com/1"},
+    % {dsn, "https://PUBLIC_KEY:PRIVATE_KEY@app.getsentry.com/1"},  % If using the private key
 
     % Set to inet6 to use IPv6.
     % See `ipfamily` in `httpc:set_options/1` for more information.
@@ -118,12 +119,15 @@ To exclude all metadata except `pid`:
 You can log directly events to sentry using the `raven:capture/2` function, for example:
 
 ```erlang
-raven:capture("Test Event", [
-    {exception, {error, badarg}},
-    {stacktrace, erlang:get_stacktrace()},
-    {extra, [
-        {pid, self()},
-        {process_dictionary, erlang:get()}
-    ]}
-]).
+try erlang:error(badarg)
+catch Class:Reason:Stacktrace ->
+    raven:capture("Test Event", [
+        {exception, {Class, Reason}},
+        {stacktrace, Stacktrace},
+        {extra, [
+            {pid, self()},
+            {process_dictionary, erlang:get()}
+        ]}
+    ])
+end.
 ```
