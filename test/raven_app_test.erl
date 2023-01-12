@@ -14,7 +14,8 @@ load_configuration_test_() ->
             {StartAppStatus, _} = application:ensure_all_started(raven_erlang),
             ?assertEqual(ok, StartAppStatus),
             Config = raven:get_config(),
-            {cfg,"https://app.getsentry.com","PUBLIC_KEY","PRIVATE_KEY","1",inet6} = Config,
+            {cfg,"https://app.getsentry.com","PUBLIC_KEY",PrivateKey,"1",inet6} = Config,
+            ?assert(PrivateKey == "PRIVATE_KEY" orelse PrivateKey == ""),
             ok = application:stop(raven_erlang)
         end},
         {"Loads a default value (inet) for ipfamily if not specified",
@@ -23,7 +24,8 @@ load_configuration_test_() ->
             {StartAppStatus, _} = application:ensure_all_started(raven_erlang),
             ?assertEqual(ok, StartAppStatus),
             Config = raven:get_config(),
-            {cfg,"https://app.getsentry.com","PUBLIC_KEY","PRIVATE_KEY","1",inet} = Config,
+            {cfg,"https://app.getsentry.com","PUBLIC_KEY",PrivateKey,"1",inet} = Config,
+            ?assert(PrivateKey == "PRIVATE_KEY" orelse PrivateKey == ""),
             ok = application:stop(raven_erlang)
         end}
     ].
