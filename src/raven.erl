@@ -162,7 +162,7 @@ frame_to_json_i({Module, Function, Arguments, Location}) ->
         false -> Arguments
     end,
     Line = case lists:keyfind(line, 1, Location) of
-        false -> -1;
+        false -> 0;
         {line, L} -> L
     end,
     {
