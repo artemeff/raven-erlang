@@ -84,9 +84,10 @@ capture(Message, Params0) ->
         {"User-Agent", UA}
     ],
     ok = httpc:set_options([{ipfamily, Cfg#cfg.ipfamily}]),
+    HttpOptions = [{ssl, [{verify, verify_none}]}],
     httpc:request(post,
         {Cfg#cfg.uri ++ "/api/store/", Headers, "application/octet-stream", Body},
-        [],
+        HttpOptions,
         [{body_format, binary}, {sync, false}, {receiver, fun(_) -> ok end}]
     ),
     ok.
